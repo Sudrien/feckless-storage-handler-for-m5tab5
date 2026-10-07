@@ -30,8 +30,10 @@
 #include "usb/msc_host_vfs.h"
 
 #include "storage.h"
-#include "usbhost.h"
 #include "rtctask.h"          /* 5183 */
+
+/* The application's USB host, from storage_init(). See storage.h. */
+static storage_usb_t s_usb;
 
 static const char *TAG = "tab5_storage";
 
@@ -387,7 +389,7 @@ void storage_release_brief(storage_id_t id)
 /* Answered by the bus owner. Kept as a one-line forward rather than
  * deleted so browser.c does not have to learn about usbhost.c to ask a
  * question about the USB volume. */
-bool storage_usb_powered(void) { return usbhost_powered(); }
+bool storage_usb_powered(void) { return s_usb.powered ? s_usb.powered() : false; }
 
 /* ------------------------------------------------------------------ */
 /* microSD                                                             */
@@ -635,7 +637,7 @@ bool storage_usb_busy(void)
 bool storage_usb_power(bool on)
 {
     if (on) {
-        usbhost_set_power(true);
+        if (s_usb.set_power) s_usb.set_power(true);
         return true;
     }
 
@@ -671,7 +673,7 @@ bool storage_usb_power(bool on)
      */
     if (s_mounted[STORAGE_USB] || s_msc_dev) usb_detach();
 
-    usbhost_set_power(false);
+    if (s_usb.set_power) s_usb.set_power(false);
     return true;
 }
 
@@ -862,11 +864,17 @@ static void storage_task(void *arg)
     }
 }
 
-esp_err_t storage_init(void)
+esp_err_t storage_init(const storage_usb_t *usb)
 {
+    if (!usb || !usb->register_class) {
+        ESP_LOGE(TAG, "storage_init: no USB host to register with; see storage.h");
+        return ESP_ERR_INVALID_ARG;
+    }
+    s_usb = *usb;
+
     s_msc_events = xQueueCreate(4, sizeof(msc_host_event_t));
     if (!s_msc_events) return ESP_ERR_NO_MEM;
-    ESP_RETURN_ON_ERROR(usbhost_register_class("msc", msc_class_install),
+    ESP_RETURN_ON_ERROR(s_usb.register_class("msc", msc_class_install),
                         TAG, "register msc");
 
     /* 5181: before the first mount, and before the radio -- see

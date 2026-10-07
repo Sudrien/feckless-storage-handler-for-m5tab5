@@ -48,8 +48,22 @@ typedef enum {
  * Returns ESP_OK once the poll task is running. Neither volume is
  * necessarily mounted at that point; that is what storage_present() is
  * for.
+ *
+ * `usb` is whatever owns the USB host, because storage does not: the
+ * port carries other classes as well. Copied, so it need not outlive the
+ * call. register_class is required; set_power and powered may be NULL,
+ * in which case storage_usb_power() changes nothing and
+ * storage_usb_powered() is false. ESP_ERR_INVALID_ARG without it.
  */
-esp_err_t storage_init(void);
+typedef esp_err_t (*storage_usb_class_fn)(void);
+
+typedef struct {
+    esp_err_t (*register_class)(const char *name, storage_usb_class_fn fn);
+    void      (*set_power)(bool on);
+    bool      (*powered)(void);
+} storage_usb_t;
+
+esp_err_t storage_init(const storage_usb_t *usb);
 
 /* Has the port been asked for? True from the moment of the request
  * rather than from the moment the bus task acts on it. The port is now
