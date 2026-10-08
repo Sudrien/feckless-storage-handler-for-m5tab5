@@ -19,7 +19,7 @@ came along unchanged.
 # main/idf_component.yml
 dependencies:
   feckless_storage_handler:
-    git: https://github.com/Sudrien/feckless-storage-handler-for-tab5.git
+    git: https://github.com/Sudrien/feckless-storage-handler-for-m5tab5.git
     version: "v0.1.0"
 ```
 
